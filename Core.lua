@@ -438,6 +438,22 @@ local function GetGatherMate()
 	return AceAddon:GetAddon("GatherMate2", true)
 end
 
+-- When the ring is set to a number of yards here, use it as GatherMate2's tracking
+-- distance too, so its red tracking circles start exactly at our ring.
+-- ("GM dist" mode leaves GatherMate2's own setting alone.)
+function FRP.SyncGatherMateDistance()
+	local yards = db and tonumber(db.ringYards)
+	if not yards then return end
+	local gm = GetGatherMate()
+	local profile = gm and gm.db and gm.db.profile
+	if not profile then return end
+	yards = max(50, min(240, floor(yards / 5 + 0.5) * 5)) -- GatherMate2's own limits: 50-240 in steps of 5
+	if profile.trackDistance == yards then return end
+	profile.trackDistance = yards
+	local cfg = gm.GetModule and gm:GetModule("Config", true)
+	if cfg and cfg.UpdateConfig then cfg:UpdateConfig() end
+end
+
 -- Individual node kinds (Copper Vein, Peacebloom, ...) the user switched off
 local function Excluded(typeKey, nodeID)
 	local ex = db.gmExclude[typeKey]
@@ -1250,7 +1266,8 @@ local function BuildWindow()
 		end
 		db.ringYards = nextV
 		self:SetText(type(nextV) == "number" and (nextV .. " yd") or "GM dist")
-	end, "Ring size. Click to change. 'GM dist' uses GatherMate2's tracking distance from /gm.")
+		FRP.SyncGatherMateDistance()
+	end, "Ring size. Click to change. A yard value is also used as GatherMate2's tracking distance; 'GM dist' follows GatherMate2's own setting from /gm instead.")
 	ringBtn:SetPoint("LEFT", ringCb.label, "RIGHT", 6, 0)
 	ringBtn:SetText(type(db.ringYards) == "number" and (db.ringYards .. " yd") or "GM dist")
 	y = y - 30
@@ -2047,6 +2064,7 @@ local function Init()
 	if db.ring == nil then db.ring = true end
 	-- default: 185 yards, the observed Find Minerals / Find Herbs range (existing installs switched over once)
 	if db.ringYards == nil or not db.ringDefaultV3 then db.ringYards = 185; db.ringDefaultV3 = true end
+	FRP.SyncGatherMateDistance()
 	if db.gmEnabled == nil then db.gmEnabled = true end
 	db.gmExclude = db.gmExclude or {}
 
@@ -2110,7 +2128,8 @@ SlashCmdList.FARMROUTEPLANNER = function(msg)
 		local yards = tonumber(msg:match("%d+"))
 		if yards and yards > 0 then
 			db.ringYards, db.ring = yards, true
-			Print("Range ring: " .. yards .. " yards.")
+			FRP.SyncGatherMateDistance()
+			Print("Range ring: " .. yards .. " yards (also set as GatherMate2's tracking distance).")
 		else
 			db.ring = not db.ring
 			Print("Range ring: " .. (db.ring and "on" or "off"))

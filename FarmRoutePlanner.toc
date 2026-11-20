@@ -9,5 +9,7 @@
 ## X-License: MIT
 ## X-Website: https://github.com/BGannon2/FarmRoutePlanner
 ## X-Category: Map
+## X-Curse-Project-ID: 1819826
+## X-Wago-ID: n6VYdONd
 
 Core.lua

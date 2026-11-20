@@ -6,3 +6,5 @@ ignore:
   - .github
   - .gitignore
   - .pkgmeta
+  - .gitattributes
+  - assets

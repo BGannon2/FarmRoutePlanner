@@ -23,7 +23,7 @@ walk you through it.
 
 ## Install
 
-1. Download the latest release from CurseForge, Wago, WoWInterface, or the GitHub Releases page.
+1. Download the latest release from [CurseForge](https://www.curseforge.com/wow/addons/farm-route-planner), [Wago](https://addons.wago.io/addons/farm-route-planner), or the [GitHub Releases page](https://github.com/BGannon2/FarmRoutePlanner/releases).
 2. Extract the `FarmRoutePlanner` folder into `World of Warcraft\_forever_\Interface\AddOns\`.
 3. Optional companions: GatherMate2, TomTom, FarmHud.
 
@@ -54,13 +54,10 @@ type `/gm`, open **Import Data**, tick the node types, and click **Import** (cho
 
 Pushing a tag such as `v1.0.0` runs the GitHub Actions workflow in
 `.github/workflows/release.yml`. It uses the [BigWigs packager](https://github.com/BigWigsMods/packager)
-to build the zip, create a GitHub release, and upload to CurseForge, Wago and WoWInterface.
+to build the zip, create a GitHub release, and upload to CurseForge and Wago.
 
-Before the first release:
-
-1. Create the project on each site and put its ID in `FarmRoutePlanner.toc`
-   (`## X-Curse-Project-ID:`, `## X-Wago-ID:`, `## X-WoWI-ID:`).
-2. Add each site's API token as a repository secret: `CF_API_KEY`, `WAGO_API_TOKEN`, `WOWI_API_TOKEN`.
+The project IDs are already in `FarmRoutePlanner.toc` (`## X-Curse-Project-ID:` and `## X-Wago-ID:`).
+Each site's API token must be stored as a repository secret: `CF_API_KEY` and `WAGO_API_TOKEN`.
 
 ## License
 
