@@ -1547,11 +1547,25 @@ local function UpdateMinimap()
 	local HBD = LibStub and LibStub("HereBeDragons-2.0", true)
 	local HBDPins = LibStub and LibStub("HereBeDragons-Pins-2.0", true)
 	local mm = (HBDPins and HBDPins.Minimap) or Minimap
-	if mmLayer:GetParent() ~= mm then
-		mmLayer:SetParent(mm)
+	-- FarmHud hides its HUD right away when it closes but hands HereBeDragons back the
+	-- normal minimap a moment later; draw on the normal minimap during that gap.
+	if mm ~= Minimap and not mm:IsVisible() and Minimap:IsVisible() then mm = Minimap end
+	-- Our layer is a child of UIParent, not of the minimap: FarmHud moves every Minimap
+	-- child onto a hidden dummy frame while the HUD is open (and doesn't give ours back),
+	-- so we only line our layer up over whichever minimap is active.
+	-- re-anchor whenever the active minimap changes, or if anything else moved our anchors
+	local _, anchorRel = mmLayer:GetPoint(1)
+	if mmLayer.anchoredTo ~= mm or anchorRel ~= mm then
 		mmLayer:ClearAllPoints()
 		mmLayer:SetAllPoints(mm)
+		mmLayer.anchoredTo = mm
 	end
+	if mmLayer:GetParent() ~= UIParent then mmLayer:SetParent(UIParent) end
+	-- match the minimap's scale so offsets measured in its units land in the right place
+	local layerScale = mm:GetEffectiveScale() / UIParent:GetEffectiveScale()
+	if layerScale > 0 and math.abs(mmLayer:GetScale() - layerScale) > 0.0001 then mmLayer:SetScale(layerScale) end
+	mmLayer:SetShown(mm:IsVisible())
+	if not mm:IsVisible() then return end
 	-- just above the minimap itself, below the node pins HereBeDragons puts on it
 	mmLayer:SetFrameStrata(mm:GetFrameStrata())
 	mmLayer:SetFrameLevel(min(mm:GetFrameLevel() + 1, 9000))
@@ -1590,7 +1604,7 @@ local function UpdateMinimap()
 				local ang = s / SEG * 2 * math.pi
 				local px1, py1 = r * cos(ang), r * sin(ang)
 				local l = tremove(mmLinePool) or NewLine(mmLayer)
-				PlaceLine(l, mm, "CENTER", px0, py0, px1, py1, 2, c, 0.7)
+				PlaceLine(l, mmLayer, "CENTER", px0, py0, px1, py1, 2, c, 0.7)
 				mmLinesUsed[#mmLinesUsed + 1] = l
 				px0, py0 = px1, py1
 			end
@@ -1676,7 +1690,7 @@ local function UpdateMinimap()
 						local t1 = min(1 - gap, (-qb + root) / (2 * qa))
 						if t0 < t1 then
 							local l = tremove(mmLinePool) or NewLine(mmLayer)
-							PlaceLine(l, mm, "CENTER", sx1 + sdx * t0, sy1 + sdy * t0,
+							PlaceLine(l, mmLayer, "CENTER", sx1 + sdx * t0, sy1 + sdy * t0,
 								sx1 + sdx * t1, sy1 + sdy * t1, 3, c, 0.85)
 							mmLinesUsed[#mmLinesUsed + 1] = l
 						end
@@ -1694,7 +1708,7 @@ local function UpdateMinimap()
 							d:SetSize(45, 45)
 							if d.SetRotation then d:SetRotation(heading) end
 							d:ClearAllPoints()
-							d:SetPoint("CENTER", mm, "CENTER", rx * scale, ry * scale)
+							d:SetPoint("CENTER", mmLayer, "CENTER", rx * scale, ry * scale)
 							count = count + 1
 							if count >= MAX_MM_DOTS then return end
 						end
@@ -2068,14 +2082,26 @@ local function Init()
 	if db.gmEnabled == nil then db.gmEnabled = true end
 	db.gmExclude = db.gmExclude or {}
 
-	mmLayer = CreateFrame("Frame", nil, Minimap)
-	mmLayer:SetAllPoints()
+	-- Parented to UIParent on purpose (see UpdateMinimap): FarmHud re-parents Minimap children.
+	mmLayer = CreateFrame("Frame", "FarmRoutePlannerMinimapLayer", UIParent)
+	mmLayer:SetAllPoints(Minimap)
+	mmLayer.anchoredTo = Minimap
 	mmLayer:SetFrameStrata(Minimap:GetFrameStrata())
-	mmLayer:SetFrameLevel(Minimap:GetFrameLevel() + 6)
+	mmLayer:SetFrameLevel(Minimap:GetFrameLevel() + 1)
+	-- the update loop runs on its own always-shown frame, so hiding the layer can't stop it
+	local driver = CreateFrame("Frame")
 	local elapsed = 0
-	mmLayer:SetScript("OnUpdate", function(_, dt)
+	driver:SetScript("OnUpdate", function(_, dt)
 		elapsed = elapsed + dt
-		if elapsed > 0.05 then elapsed = 0; UpdateMinimap() end
+		if elapsed > 0.05 then
+			elapsed = 0
+			local ok, err = pcall(UpdateMinimap)
+			if not ok and not FRP.reportedMinimapError then
+				-- Lua errors may be hidden in-game; report the first one so it can be fixed
+				FRP.reportedMinimapError = true
+				Print("|cffff6060Minimap drawing error:|r " .. tostring(err))
+			end
+		end
 	end)
 	UpdateIndoors()
 	BuildMinimapButton()
@@ -2159,8 +2185,19 @@ SlashCmdList.FARMROUTEPLANNER = function(msg)
 		Print(shown .. " saved route(s) in this zone. GatherMate2 " .. (GetGatherMate() and "found" or "not found") .. ".")
 		local pins = LibStub and LibStub("HereBeDragons-Pins-2.0", true)
 		local mmf = (pins and pins.Minimap) or Minimap
-		Print("Minimap drawing on: " .. (mmf:GetName() or "unnamed frame") .. " (" .. floor(mmf:GetWidth()) .. "px wide), HereBeDragons " ..
+		Print("Minimap drawing on: " .. (mmf:GetName() or "unnamed frame") .. " (" .. floor(mmf:GetWidth()) .. "px wide, visible " ..
+			tostring(mmf:IsVisible()) .. "), HereBeDragons " ..
 			((LibStub and LibStub("HereBeDragons-2.0", true)) and "found" or "not found") .. ".")
+		if mmLayer then
+			local _, rel = mmLayer:GetPoint(1)
+			local parent = mmLayer:GetParent()
+			Print("Route layer: shown " .. tostring(mmLayer:IsShown()) .. ", visible " .. tostring(mmLayer:IsVisible()) ..
+				", parent " .. ((parent and parent:GetName()) or "?") ..
+				", anchored to " .. ((rel and rel.GetName and rel:GetName()) or "?") ..
+				", scale " .. string.format("%.2f", mmLayer:GetScale()) ..
+				", lines " .. #mmLinesUsed .. ", arrows " .. #mmUsed ..
+				", strata " .. mmLayer:GetFrameStrata() .. "/" .. mmLayer:GetFrameLevel())
+		end
 		if wmLayer then
 			local maxLevel = 0
 			for _, child in ipairs({ wmCanvas:GetChildren() }) do maxLevel = max(maxLevel, child:GetFrameLevel()) end
