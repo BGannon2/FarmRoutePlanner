@@ -18,7 +18,7 @@ walk you through it.
   - **GatherMate Optimized Route** builds a short loop through every chosen node.
 - **Record Path:** the addon drops a point every few yards as you walk. Use it to record the real path between two nodes of an optimized route.
 - **TomTom follow mode:** the TomTom arrow moves to the next point once you're within a distance you choose.
-- **Range ring:** a ring around you on the minimap. By default it matches GatherMate2's tracking distance; you can also pick a fixed size.
+- **Range ring:** a ring around you on the minimap, 185 yards by default (about the Find Minerals / Find Herbs range). Pick another size, or match GatherMate2's tracking distance.
 - **Import / Export:** share routes as text strings.
 
 ## Install

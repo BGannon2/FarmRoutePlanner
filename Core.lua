@@ -1238,11 +1238,11 @@ local function BuildWindow()
 	ringCb:SetScript("OnClick", function(self) db.ring = self:GetChecked() and true or false end)
 	ringCb:SetScript("OnEnter", function(self)
 		GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-		GameTooltip:SetText("A ring around you on the minimap. By default it matches GatherMate2's tracking distance (set in /gm), where nodes turn into red circles.", 1, 1, 1, 1, true)
+		GameTooltip:SetText("A ring around you on the minimap. Default 185 yards, about the Find Minerals / Find Herbs range. 'GM dist' uses GatherMate2's tracking distance from /gm.", 1, 1, 1, 1, true)
 		GameTooltip:Show()
 	end)
 	ringCb:SetScript("OnLeave", GameTooltip_Hide)
-	local RING_CHOICES = { 50, 75, 100, 125, 150, 200, "GM" }
+	local RING_CHOICES = { 50, 75, 100, 125, 150, 185, 200, 240, "GM" }
 	local ringBtn = MakeButton(win, "", 70, function(self)
 		local nextV = RING_CHOICES[1]
 		for i, v in ipairs(RING_CHOICES) do
@@ -2045,8 +2045,8 @@ local function Init()
 	db.followDist = db.followDist or 20
 	db.recordStep = db.recordStep or 10
 	if db.ring == nil then db.ring = true end
-	-- default: follow GatherMate2's tracking distance (switched existing installs over once)
-	if db.ringYards == nil or not db.ringDefaultV2 then db.ringYards = "GM"; db.ringDefaultV2 = true end
+	-- default: 185 yards, the observed Find Minerals / Find Herbs range (existing installs switched over once)
+	if db.ringYards == nil or not db.ringDefaultV3 then db.ringYards = 185; db.ringDefaultV3 = true end
 	if db.gmEnabled == nil then db.gmEnabled = true end
 	db.gmExclude = db.gmExclude or {}
 
