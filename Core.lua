@@ -1131,6 +1131,17 @@ local function BuildWindow()
 	end,
 		"Build the shortest loop we can find through every chosen GatherMate2 node in this zone.")
 	importGM:SetPoint("LEFT", nodesBtn, "RIGHT", 4, 0)
+	-- size the button to its label; use the smaller font if it would run past the map edge
+	do
+		local fs = importGM:GetFontString()
+		local room = 200
+		if fs and fs:GetStringWidth() + 24 > room then
+			importGM:SetNormalFontObject("GameFontNormalSmall")
+			importGM:SetHighlightFontObject("GameFontHighlightSmall")
+			importGM:SetDisabledFontObject("GameFontDisableSmall")
+		end
+		if fs then importGM:SetWidth(min(room, fs:GetStringWidth() + 24)) end
+	end
 	win.gmStatus = mapFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
 	win.gmStatus:SetPoint("BOTTOMRIGHT", mapFrame, "BOTTOMRIGHT", -6, 6)
 
@@ -1536,8 +1547,12 @@ local ARROW_GAP_PX = 34 -- arrows (45px) are kept this far from each route point
 local function UpdateMinimap()
 	for i = #mmUsed, 1, -1 do mmUsed[i]:Hide(); mmPool[#mmPool + 1] = tremove(mmUsed, i) end
 	for i = #mmLinesUsed, 1, -1 do mmLinesUsed[i]:Hide(); mmLinePool[#mmLinePool + 1] = tremove(mmLinesUsed, i) end
-	if not db.minimap and not db.ring then
+	-- nothing to gather in dungeons, raids or battlegrounds: keep the minimap clear there
+	local _, instanceType = IsInInstance()
+	local inDungeon = instanceType == "party" or instanceType == "raid" or instanceType == "pvp"
+	if inDungeon or (not db.minimap and not db.ring) then
 		if FRP.mmRing then FRP.mmRing:Hide() end
+		mmLayer:Hide()
 		return
 	end
 
@@ -1801,6 +1816,27 @@ local function SetupWorldMap()
 	if WorldMapFrame.OnMapChanged then hooksecurefunc(WorldMapFrame, "OnMapChanged", FRP.RedrawWorldMap) end
 	WorldMapFrame:HookScript("OnShow", FRP.RedrawWorldMap)
 	wmCanvas:HookScript("OnSizeChanged", FRP.RedrawWorldMap)
+	-- "FRP" button in the map's top-right corner: closes the world map and opens the
+	-- planner on the zone being viewed
+	local btn = CreateFrame("Button", "FarmRoutePlannerWorldMapButton", WorldMapFrame, "UIPanelButtonTemplate")
+	btn:SetSize(46, 22); btn:SetText("FRP")
+	btn:SetPoint("TOPRIGHT", WorldMapFrame.ScrollContainer, "TOPRIGHT", -6, -6)
+	btn:SetFrameLevel(min(WorldMapFrame.ScrollContainer:GetFrameLevel() + 50, 9000))
+	btn:SetScript("OnClick", function()
+		local mapID = WorldMapFrame:GetMapID()
+		local info = mapID and C_Map.GetMapInfo(mapID)
+		HideUIPanel(WorldMapFrame)
+		if not win or not win:IsShown() then FRP.Toggle() end
+		if info and Enum and Enum.UIMapType and info.mapType == Enum.UIMapType.Zone then FRP.SetZone(mapID) end
+	end)
+	btn:SetScript("OnEnter", function(self)
+		GameTooltip:SetOwner(self, "ANCHOR_LEFT")
+		GameTooltip:SetText("Farm Route Planner", 1, 1, 1)
+		GameTooltip:AddLine("Open the planner on this zone.", nil, nil, nil, true)
+		GameTooltip:Show()
+	end)
+	btn:SetScript("OnLeave", GameTooltip_Hide)
+
 	local lastScale, lastMap
 	wmLayer:SetScript("OnUpdate", function()
 		local s, m = wmCanvas:GetScale(), WorldMapFrame:GetMapID()
